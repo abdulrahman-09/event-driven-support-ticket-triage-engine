@@ -1,7 +1,5 @@
-package com.am9.ticket_ingestion_service.model.entity;
+package com.am9.ticket_ingestion_service.model;
 
-import com.am9.ticket_ingestion_service.model.StatusChange;
-import com.am9.ticket_ingestion_service.model.enums.TicketStatus;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
