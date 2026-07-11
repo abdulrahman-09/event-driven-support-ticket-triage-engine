@@ -1,5 +1,6 @@
 package com.am9.ticket_ingestion_service.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -13,5 +14,6 @@ public record CreateTicketRequest(
         String description,
 
         @NotBlank(message = "customerEmail must not be blank")
-        String customerEmail
+        @Email(message = "customerEmail must be a valid email address")
+        String userEmail
 ) {}

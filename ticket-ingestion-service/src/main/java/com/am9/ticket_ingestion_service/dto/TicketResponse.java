@@ -4,9 +4,8 @@ import java.time.Instant;
 
 public record TicketResponse(
         String ticketId,
-        String status,
         String subject,
-        String category,
-        String urgencyReasoning,
+        String description,
+        String userEmail,
         Instant createdAt
 ) {}
