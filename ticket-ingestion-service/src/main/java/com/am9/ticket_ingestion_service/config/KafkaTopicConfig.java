@@ -8,11 +8,12 @@ import org.springframework.kafka.config.TopicBuilder;
 
 @Configuration
 public class KafkaTopicConfig {
+
     @Value("${app.kafka.topic.tickets-created}")
-    private String ticketsCreated;
+    private String ticketCreatedTopic;
 
     @Bean
     public NewTopic ticketsCreatedTopic(){
-        return TopicBuilder.name(ticketsCreated).partitions(3).replicas(1).build();
+        return TopicBuilder.name(ticketCreatedTopic).partitions(3).replicas(1).build();
     }
 }

@@ -28,6 +28,12 @@ public class GlobalExceptionHandler {
                 .body(errorBody(HttpStatus.NOT_FOUND, ex.getMessage()));
     }
 
+    @ExceptionHandler(DuplicateInFlightException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateInFlight(DuplicateInFlightException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(errorBody(HttpStatus.CONFLICT, "This ticket was already submitted."));
+    }
+
     @ExceptionHandler(MissingIdempotencyKeyException.class)
     public ResponseEntity<Map<String, Object>> handleMissingKey(MissingIdempotencyKeyException ex) {
         return ResponseEntity.badRequest().body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
