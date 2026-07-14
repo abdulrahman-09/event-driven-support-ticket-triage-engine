@@ -6,7 +6,7 @@ public record TicketEvent(
         String ticketId,
         String subject,
         String description,
-        String customerEmail,
+        String userEmail,
         String urgency,
         String category,
         String reasoning,
