@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -18,8 +21,8 @@ public class TicketProducerService {
     @Value("${app.kafka.topic.tickets-created}")
     private String ticketCreatedTopic;
 
-    public void publishTicketCreated(TicketEvent event){
-        kafkaTemplate.send(ticketCreatedTopic, event.ticketId(), event)
+    public CompletableFuture<SendResult<String, Object>> publishTicketCreated(TicketEvent event) {
+        return kafkaTemplate.send(ticketCreatedTopic, event.ticketId(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish ticket created event for ticketId={}", event.ticketId(), ex);

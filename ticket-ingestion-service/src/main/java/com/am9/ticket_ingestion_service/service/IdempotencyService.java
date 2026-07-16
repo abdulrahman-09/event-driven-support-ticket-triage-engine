@@ -37,7 +37,7 @@ public class IdempotencyService {
 //        return Optional.ofNullable(redisTemplate.opsForValue().get(redisTemplate));
 //    }
 //
-//    public void release(String idempotencyKey) {
-//        redisTemplate.delete(KEY_PREFIX + idempotencyKey);
-//    }
+    public void release(String idempotencyKey) {
+        redisTemplate.delete(KEY_PREFIX + idempotencyKey);
+    }
 }

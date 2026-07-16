@@ -39,6 +39,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
     }
 
+    @ExceptionHandler(TicketPublishFailedException.class)
+    public ResponseEntity<Map<String, Object>> handleTicketPublishFailed(TicketPublishFailedException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(errorBody(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Ticket could not be accepted right now. Please retry."
+                ));
+    }
+
     private Map<String, Object> errorBody(HttpStatus status, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now());
