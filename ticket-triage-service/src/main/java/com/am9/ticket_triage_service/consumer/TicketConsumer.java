@@ -5,6 +5,7 @@ import com.am9.ticket_triage_service.dto.TicketEvent;
 import com.am9.ticket_triage_service.dto.TriageResult;
 import com.am9.ticket_triage_service.model.Ticket;
 import com.am9.ticket_triage_service.model.TicketStatus;
+import com.am9.ticket_triage_service.producer.TriageEventProducer;
 import com.am9.ticket_triage_service.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,10 +21,12 @@ public class TicketConsumer {
 
     private final TriageClassifier triageClassifier;
     private final TicketRepository ticketRepository;
-//  private final TriageEventProducer eventProducer; To Be implemented
+   private final TriageEventProducer triageEventProducer;
 
     @KafkaListener(topics = "${app.kafka.topic.tickets-created}", concurrency = "3")
     public void handleTicketCreated(TicketEvent event){
+        log.info("Received ticket {} for triage", event.ticketId());
+
         Ticket ticket = Ticket.newFromEvent(
                 event.ticketId(), event.subject(), event.description(),
                 event.userEmail(), event.createdAt()
@@ -36,7 +39,7 @@ public class TicketConsumer {
             applyClassification(ticket, result, event);
         }catch (Exception ex){
             log.error("Failed to process ticket {}: {}", event.ticketId(), ex.getMessage());
-//            handleFailure(ticket, event, ex.getMessage()); To be implemented
+            handleFailure(ticket, event, ex.getMessage());
         }
     }
 
@@ -49,8 +52,34 @@ public class TicketConsumer {
         ticket.setUrgencyReasoning(result.reasoning());
         ticket.appendStatusChange(newStatus, note, now);
         ticketRepository.save(ticket);
+
+        TicketEvent classifiedEvent = new TicketEvent(
+                event.ticketId(), event.subject(), event.description(), event.userEmail(),
+                newStatus.name(), result.category(), result.reasoning(), event.createdAt(), now
+        );
+
+        triageEventProducer.publishRouted(classifiedEvent);
+        log.info("Ticket {} classified as {}", event.ticketId(), newStatus);
     }
 
+    private void handleFailure(Ticket ticket, TicketEvent event, String failureReason) {
+        Instant now = Instant.now();
+        String note = "Processing failed: " + failureReason;
+
+        try {
+            ticket.appendStatusChange(TicketStatus.FAILED, note, now);
+            ticketRepository.save(ticket);
+        } catch (Exception mongoEx) {
+            log.error("Could not persist FAILED status for ticket {} — Mongo write failed: {}",
+                    event.ticketId(), mongoEx.getMessage());
+        }
+
+        TicketEvent dlqEvent = new TicketEvent(
+                event.ticketId(), event.subject(), event.description(), event.userEmail(),
+                null, null, note, event.createdAt(), now
+        );
+        triageEventProducer.publishRouted(dlqEvent);
+    }
 
 
 }

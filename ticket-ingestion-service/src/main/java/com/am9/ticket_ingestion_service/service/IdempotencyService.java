@@ -6,6 +6,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class IdempotencyService {
@@ -30,8 +32,8 @@ public class IdempotencyService {
 //        redisTemplate.opsForValue().set(redisKey, responseJson, Duration.ofSeconds(ttlSeconds));
 //    }
 //
-//    public Optional<String> get(String IdempotencyKey){
-//        String redisKey = KEY_PREFIX + IdempotencyKey;
+//    public Optional<String> get(String idempotencyKey){
+//        String redisKey = KEY_PREFIX + idempotencyKey;
 //        return Optional.ofNullable(redisTemplate.opsForValue().get(redisTemplate));
 //    }
 //
