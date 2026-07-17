@@ -1,8 +1,10 @@
 package com.am9.ticket_triage_service.consumer;
 
 import com.am9.ticket_triage_service.ai.TriageClassifier;
+import com.am9.ticket_triage_service.ai.TriageResultValidator;
 import com.am9.ticket_triage_service.dto.TicketEvent;
 import com.am9.ticket_triage_service.dto.TriageResult;
+import com.am9.ticket_triage_service.dto.ValidatedTriageResult;
 import com.am9.ticket_triage_service.model.Ticket;
 import com.am9.ticket_triage_service.model.TicketStatus;
 import com.am9.ticket_triage_service.producer.TriageEventProducer;
@@ -21,7 +23,8 @@ public class TicketConsumer {
 
     private final TriageClassifier triageClassifier;
     private final TicketRepository ticketRepository;
-   private final TriageEventProducer triageEventProducer;
+    private final TriageEventProducer triageEventProducer;
+    private final TriageResultValidator triageResultValidator;
 
     @KafkaListener(topics = "${app.kafka.topic.tickets-created}", concurrency = "3")
     public void handleTicketCreated(TicketEvent event){
@@ -35,31 +38,31 @@ public class TicketConsumer {
         try{
 
             ticketRepository.save(ticket);
-            TriageResult result = triageClassifier.classify(event);
-            applyClassification(ticket, result, event);
+            TriageResult rawResult = triageClassifier.classify(event);
+            ValidatedTriageResult validatedResult = triageResultValidator.validate(rawResult);
+            applyClassification(ticket, validatedResult, event);
         }catch (Exception ex){
             log.error("Failed to process ticket {}: {}", event.ticketId(), ex.getMessage());
             handleFailure(ticket, event, ex.getMessage());
         }
     }
 
-    private void applyClassification(Ticket ticket, TriageResult result, TicketEvent event) {
-        TicketStatus newStatus = TicketStatus.valueOf(result.urgency().toUpperCase());
+    private void applyClassification(Ticket ticket, ValidatedTriageResult result, TicketEvent event) {
         Instant now = Instant.now();
-        String note = "Classified as " + newStatus + ": " + result.reasoning();
+        String note = "Classified as " + result.urgency() + ": " + result.reasoning();
 
         ticket.setCategory(result.category());
         ticket.setUrgencyReasoning(result.reasoning());
-        ticket.appendStatusChange(newStatus, note, now);
+        ticket.appendStatusChange(result.urgency(), note, now);
         ticketRepository.save(ticket);
 
         TicketEvent classifiedEvent = new TicketEvent(
                 event.ticketId(), event.subject(), event.description(), event.userEmail(),
-                newStatus.name(), result.category(), result.reasoning(), event.createdAt(), now
+                result.urgency().toString(), result.category(), result.reasoning(), event.createdAt(), now
         );
 
         triageEventProducer.publishRouted(classifiedEvent);
-        log.info("Ticket {} classified as {}", event.ticketId(), newStatus);
+        log.info("Ticket {} classified as {}", event.ticketId(), result.urgency());
     }
 
     private void handleFailure(Ticket ticket, TicketEvent event, String failureReason) {
