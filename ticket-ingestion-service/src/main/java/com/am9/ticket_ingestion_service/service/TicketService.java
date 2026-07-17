@@ -1,6 +1,7 @@
 package com.am9.ticket_ingestion_service.service;
 
 import com.am9.ticket_ingestion_service.dto.CreateTicketRequest;
+import com.am9.ticket_ingestion_service.dto.IdempotencyDecision;
 import com.am9.ticket_ingestion_service.dto.TicketEvent;
 import com.am9.ticket_ingestion_service.dto.TicketResponse;
 import com.am9.ticket_ingestion_service.exception.DuplicateInFlightException;
@@ -20,10 +21,11 @@ public class TicketService {
     private final IdempotencyService idempotencyService;
 
     public TicketResponse createTicket(String idempotencyKey, CreateTicketRequest request){
-        boolean claimed = idempotencyService.claim(idempotencyKey);
+        String requestHash = idempotencyService.fingerprint(request);
+        IdempotencyDecision decision = idempotencyService.startOrReturnCompleted(idempotencyKey, requestHash);
 
-        if (!claimed){
-            throw new DuplicateInFlightException(idempotencyKey);
+        if (!decision.shouldProcess()){
+            return decision.cachedResponse();
         }
 
         String ticketId = UUID.randomUUID().toString();
@@ -41,6 +43,7 @@ public class TicketService {
 
         try {
             producerService.publishTicketCreated(event).get();
+            idempotencyService.complete(idempotencyKey, requestHash, response);
             return response;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

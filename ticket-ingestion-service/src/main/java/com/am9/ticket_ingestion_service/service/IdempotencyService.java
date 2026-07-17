@@ -101,17 +101,6 @@ public class IdempotencyService {
         redisTemplate.opsForValue().set(redisKey, toJson(completed), Duration.ofSeconds(ttlSeconds));
     }
 
-
-//    public void store(String idempotencyKey, String responseJson){
-//        String redisKey = KEY_PREFIX + idempotencyKey;
-//        redisTemplate.opsForValue().set(redisKey, responseJson, Duration.ofSeconds(ttlSeconds));
-//    }
-//
-//    public Optional<String> get(String idempotencyKey){
-//        String redisKey = KEY_PREFIX + idempotencyKey;
-//        return Optional.ofNullable(redisTemplate.opsForValue().get(redisTemplate));
-//    }
-//
     public void release(String idempotencyKey) {
         validateKey(idempotencyKey);
         redisTemplate.delete(redisKey(idempotencyKey));    }
