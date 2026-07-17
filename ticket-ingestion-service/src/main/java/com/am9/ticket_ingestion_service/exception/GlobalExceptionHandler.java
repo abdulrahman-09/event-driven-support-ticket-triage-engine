@@ -31,7 +31,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateInFlightException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateInFlight(DuplicateInFlightException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(errorBody(HttpStatus.CONFLICT, "This ticket was already submitted."));
+                .body(errorBody(HttpStatus.CONFLICT, "A request with this Idempotency-Key is still processing."));
+    }
+
+    @ExceptionHandler(IdempotencyKeyConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleIdempotencyKeyConflict(
+            IdempotencyKeyConflictException ex
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(errorBody(HttpStatus.CONFLICT, ex.getMessage()));
     }
 
     @ExceptionHandler(MissingIdempotencyKeyException.class)
