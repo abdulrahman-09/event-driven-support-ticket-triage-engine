@@ -1,12 +1,9 @@
-package com.am9.ticket_ingestion_service.service;
+package com.am9.ticket_ingestion_service.service.idempotency;
 
 import com.am9.ticket_ingestion_service.dto.CreateTicketRequest;
-import com.am9.ticket_ingestion_service.dto.IdempotencyDecision;
-import com.am9.ticket_ingestion_service.dto.IdempotencyRecord;
 import com.am9.ticket_ingestion_service.dto.TicketResponse;
 import com.am9.ticket_ingestion_service.exception.DuplicateInFlightException;
 import com.am9.ticket_ingestion_service.exception.IdempotencyKeyConflictException;
-import com.am9.ticket_ingestion_service.service.enums.IdempotencyStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +18,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

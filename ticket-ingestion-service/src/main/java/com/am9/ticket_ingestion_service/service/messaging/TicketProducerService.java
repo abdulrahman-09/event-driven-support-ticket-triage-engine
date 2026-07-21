@@ -1,7 +1,7 @@
-package com.am9.ticket_ingestion_service.service;
+package com.am9.ticket_ingestion_service.service.messaging;
 
 
-import com.am9.ticket_ingestion_service.dto.TicketEvent;
+import com.am9.ticket_ingestion_service.messaging.TicketEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

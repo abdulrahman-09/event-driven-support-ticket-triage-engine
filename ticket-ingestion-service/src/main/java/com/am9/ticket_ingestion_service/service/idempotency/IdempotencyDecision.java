@@ -1,4 +1,6 @@
-package com.am9.ticket_ingestion_service.dto;
+package com.am9.ticket_ingestion_service.service.idempotency;
+
+import com.am9.ticket_ingestion_service.dto.TicketResponse;
 
 public record IdempotencyDecision(
         boolean shouldProcess,

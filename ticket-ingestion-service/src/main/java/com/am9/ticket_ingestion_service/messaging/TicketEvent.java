@@ -1,4 +1,4 @@
-package com.am9.ticket_ingestion_service.dto;
+package com.am9.ticket_ingestion_service.messaging;
 
 import java.time.Instant;
 

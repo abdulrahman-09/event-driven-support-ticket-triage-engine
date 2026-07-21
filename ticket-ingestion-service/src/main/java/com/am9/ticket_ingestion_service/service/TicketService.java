@@ -1,11 +1,12 @@
 package com.am9.ticket_ingestion_service.service;
 
 import com.am9.ticket_ingestion_service.dto.CreateTicketRequest;
-import com.am9.ticket_ingestion_service.dto.IdempotencyDecision;
-import com.am9.ticket_ingestion_service.dto.TicketEvent;
+import com.am9.ticket_ingestion_service.service.idempotency.IdempotencyDecision;
+import com.am9.ticket_ingestion_service.messaging.TicketEvent;
 import com.am9.ticket_ingestion_service.dto.TicketResponse;
-import com.am9.ticket_ingestion_service.exception.DuplicateInFlightException;
 import com.am9.ticket_ingestion_service.exception.TicketPublishFailedException;
+import com.am9.ticket_ingestion_service.service.idempotency.IdempotencyService;
+import com.am9.ticket_ingestion_service.service.messaging.TicketProducerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

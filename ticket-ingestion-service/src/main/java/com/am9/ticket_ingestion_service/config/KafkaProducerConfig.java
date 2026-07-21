@@ -28,7 +28,7 @@ public class KafkaProducerConfig {
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
         config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
-        config.put(JsonSerializer.TYPE_MAPPINGS, "ticketEvent:com.am9.ticket_ingestion_service.dto.TicketEvent");
+        config.put(JsonSerializer.TYPE_MAPPINGS, "ticketEvent:com.am9.ticket_ingestion_service.messaging.TicketEvent");
 
         return new DefaultKafkaProducerFactory<>(config);
 
