@@ -31,6 +31,7 @@ public class IdempotencyService {
     private static final String KEY_PREFIX = "idempotency:create-ticket";
     private static final int MAX_KEY_LENGTH = 128;
     private static final long FAILED_RECORD_TTL_SECONDS = 30;
+    private static final int MAX_CLAIM_RETRIES = 3;
     @Value("${app.idempotency.ttl-seconds}")
     private long ttlSeconds;
 
@@ -47,7 +48,16 @@ public class IdempotencyService {
     }
 
     public IdempotencyDecision startOrReturnCompleted(String idempotencyKey, String requestHash){
+        return startOrReturnCompleted(idempotencyKey, requestHash, 0);
+    }
+
+    private IdempotencyDecision startOrReturnCompleted(String idempotencyKey, String requestHash, int attempt){
         validateKey(idempotencyKey);
+
+        if (attempt >= MAX_CLAIM_RETRIES){
+            throw new IllegalStateException(
+                    "Idempotency key " + idempotencyKey + " could not be resolved after " + MAX_CLAIM_RETRIES + " attempts");
+        }
 
         String redisKey = redisKey(idempotencyKey);
         Instant now = Instant.now();
@@ -65,7 +75,7 @@ public class IdempotencyService {
 
         String existingJson = redisTemplate.opsForValue().get(redisKey);
         if (existingJson == null){
-            return startOrReturnCompleted(idempotencyKey, requestHash);
+            return startOrReturnCompleted(idempotencyKey, requestHash, attempt + 1);
         }
 
         IdempotencyRecord existing = fromJson(existingJson);
@@ -129,7 +139,7 @@ public class IdempotencyService {
     }
 
     private String redisKey(String idempotencyKey) {
-        return KEY_PREFIX + sha256(idempotencyKey);
+        return KEY_PREFIX + ":" + sha256(idempotencyKey);
     }
 
     private void validateKey(String idempotencyKey) {
