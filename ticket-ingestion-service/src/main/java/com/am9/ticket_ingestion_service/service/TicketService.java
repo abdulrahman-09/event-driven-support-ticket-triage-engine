@@ -47,10 +47,10 @@ public class TicketService {
             return response;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            idempotencyService.release(idempotencyKey);
+            idempotencyService.fail(idempotencyKey, requestHash, ex.getMessage());
             throw new TicketPublishFailedException(ticketId, ex);
         } catch (ExecutionException ex) {
-            idempotencyService.release(idempotencyKey);
+            idempotencyService.fail(idempotencyKey, requestHash, ex.getMessage());
             throw new TicketPublishFailedException(ticketId, ex);
         }
     }

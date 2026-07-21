@@ -33,4 +33,12 @@ public record IdempotencyRecord(
                 now
         );
     }
+    public IdempotencyRecord failed(String errorMessage, Instant now) {
+        return new IdempotencyRecord(requestHash,
+                IdempotencyStatus.FAILED,
+                null,
+                errorMessage,
+                createdAt,
+                now);
+    }
 }

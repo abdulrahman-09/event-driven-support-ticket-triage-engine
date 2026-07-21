@@ -10,6 +10,7 @@ import com.am9.ticket_ingestion_service.service.enums.IdempotencyStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -24,10 +25,12 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class IdempotencyService {
 
     private static final String KEY_PREFIX = "idempotency:create-ticket";
     private static final int MAX_KEY_LENGTH = 128;
+    private static final long FAILED_RECORD_TTL_SECONDS = 30;
     @Value("${app.idempotency.ttl-seconds}")
     private long ttlSeconds;
 
@@ -75,35 +78,55 @@ public class IdempotencyService {
             return IdempotencyDecision.returnCachedResponse(existing.response());
         }
 
+        if (existing.status() == IdempotencyStatus.FAILED){
+            return IdempotencyDecision.processNewRequest();
+        }
+
         throw new DuplicateInFlightException(idempotencyKey);
     }
 
     public void complete(String idempotencyKey, String requestHash, TicketResponse response){
         validateKey(idempotencyKey);
-
         String redisKey = redisKey(idempotencyKey);
-        String existingJson = redisTemplate.opsForValue().get(redisKey);
 
-        if(existingJson == null){
-            Instant now = Instant.now();
-            IdempotencyRecord completed = IdempotencyRecord.processing(requestHash, now).completed(response, now);
+        try {
+            String existingJson = redisTemplate.opsForValue().get(redisKey);
+
+            IdempotencyRecord completed;
+            if (existingJson == null) {
+                Instant now = Instant.now();
+                completed = IdempotencyRecord.processing(requestHash, now).completed(response, now);
+            }else {
+                IdempotencyRecord existing = fromJson(existingJson);
+                if (!existing.requestHash().equals(requestHash)) {
+                    throw new IdempotencyKeyConflictException();
+                }
+                completed = existing.completed(response, Instant.now());
+            }
             redisTemplate.opsForValue().set(redisKey, toJson(completed), Duration.ofSeconds(ttlSeconds));
-            return;
         }
+        catch (IdempotencyKeyConflictException ex){
+            throw ex;
+        }catch (Exception ex){
+            log.error("Failed to mark idempotency record COMPLETED for key={} after successful publish. "
+                            + "Ticket was created but the idempotency cache may be stale until TTL expiry.",
+                    idempotencyKey, ex);
+            throw new IllegalStateException("Failed to persist completed idempotency record", ex);
 
-        IdempotencyRecord existing = fromJson(existingJson);
-
-        if (!existing.requestHash().equals(requestHash)){
-            throw new IdempotencyKeyConflictException();
         }
-
-        IdempotencyRecord completed = existing.completed(response, Instant.now());
-        redisTemplate.opsForValue().set(redisKey, toJson(completed), Duration.ofSeconds(ttlSeconds));
     }
 
-    public void release(String idempotencyKey) {
+    public void fail(String idempotencyKey, String requestHash, String errorMessage) {
         validateKey(idempotencyKey);
-        redisTemplate.delete(redisKey(idempotencyKey));    }
+        String redisKey = redisKey(idempotencyKey);
+        Instant now = Instant.now();
+        String existingJson = redisTemplate.opsForValue().get(redisKey);
+        IdempotencyRecord base = existingJson == null
+                ? IdempotencyRecord.processing(requestHash, now)
+                : fromJson(existingJson);
+        IdempotencyRecord failedRecord = base.failed(errorMessage, now);
+        redisTemplate.opsForValue().set(redisKey, toJson(failedRecord), Duration.ofSeconds(FAILED_RECORD_TTL_SECONDS));
+    }
 
     private String redisKey(String idempotencyKey) {
         return KEY_PREFIX + sha256(idempotencyKey);
