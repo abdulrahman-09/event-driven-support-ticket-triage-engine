@@ -35,7 +35,7 @@ public class TicketQueryService {
         Sort sort = Sort.by(sortDirection, sortField.documentProperty());
 
         if (!"createdAt".equals(sortField.documentProperty())){
-            sort = sort.and(Sort.by(Sort.Direction.ASC, "createdAt"));
+            sort = sort.and(Sort.by(Sort.Direction.DESC, "createdAt"));
         }
 
         if (!"id".equals(sortField.documentProperty())) {
