@@ -26,14 +26,15 @@ public class TriageEventProducer {
     @Value("${app.kafka.topic.tickets-dlq}")
     private String dlqTopic;
 
-    public CompletableFuture<SendResult<String, Object>> publishRouted(TicketEvent event){
-        String topic = switch (event.urgency()){
+    public CompletableFuture<SendResult<String, Object>> publishRouted(TicketEvent event) {
+        String topic = (event.urgency() == null)
+                ? dlqTopic
+                : switch (event.urgency()) {
             case "CRITICAL" -> criticalTopic;
             case "MEDIUM" -> mediumTopic;
             case "LOW" -> lowTopic;
             default -> dlqTopic;
         };
-
         return kafkaTemplate.send(topic, event.ticketId(), event);
     }
 }
