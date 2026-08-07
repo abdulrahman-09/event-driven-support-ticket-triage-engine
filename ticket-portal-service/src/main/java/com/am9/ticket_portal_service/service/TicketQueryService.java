@@ -2,15 +2,20 @@ package com.am9.ticket_portal_service.service;
 
 import com.am9.ticket_portal_service.dto.TicketDetailResponse;
 import com.am9.ticket_portal_service.dto.TicketPageResponse;
+import com.am9.ticket_portal_service.dto.TicketSummaryResponse;
 import com.am9.ticket_portal_service.entity.Ticket;
 import com.am9.ticket_portal_service.exception.InvalidTicketSortException;
+import com.am9.ticket_portal_service.exception.TicketNotFoundException;
 import com.am9.ticket_portal_service.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @RequiredArgsConstructor
@@ -19,13 +24,32 @@ public class TicketQueryService {
     private final TicketRepository ticketRepository;
 
     public TicketPageResponse listTickets(int page, int size, String sortBy, String direction){
-        // To be done
-        return null;
+        SortSpec sortSpec = resolveSort(sortBy, direction);
+        PageRequest pageRequest = PageRequest.of(page, size, sortSpec.sort());
+        Page<Ticket> ticketPage = ticketRepository.findAll(pageRequest);
+
+        AtomicLong displayIndex = new AtomicLong(pageRequest.getOffset() + 1);
+        List<TicketSummaryResponse> tickets = ticketPage.getContent().stream()
+                .map(ticket -> TicketSummaryResponse.from(ticket, displayIndex.getAndIncrement()))
+                .toList();
+
+        return new TicketPageResponse(
+                tickets,
+                ticketPage.getNumber(),
+                ticketPage.getSize(),
+                ticketPage.getTotalElements(),
+                ticketPage.getTotalPages(),
+                ticketPage.isFirst(),
+                ticketPage.isLast(),
+                sortSpec.apiName(),
+                sortSpec.direction()
+        );
     }
 
     public TicketDetailResponse getTicket(String ticketId) {
-        // To be done
-        return null;
+        return ticketRepository.findById(ticketId)
+                .map(TicketDetailResponse::from)
+                .orElseThrow(() -> new TicketNotFoundException(ticketId));
     }
 
     private SortSpec resolveSort(String sortBy, String direction){
