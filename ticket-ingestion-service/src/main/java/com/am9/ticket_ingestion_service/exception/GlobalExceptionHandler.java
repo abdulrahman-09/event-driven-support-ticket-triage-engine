@@ -47,6 +47,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
     }
 
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidIdempotencyKey(
+            InvalidIdempotencyKeyException ex) {
+        return ResponseEntity.badRequest()
+                .body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
     @ExceptionHandler(TicketPublishFailedException.class)
     public ResponseEntity<Map<String, Object>> handleTicketPublishFailed(TicketPublishFailedException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

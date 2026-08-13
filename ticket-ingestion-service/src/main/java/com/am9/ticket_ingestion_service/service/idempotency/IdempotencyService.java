@@ -4,6 +4,7 @@ import com.am9.ticket_ingestion_service.dto.CreateTicketRequest;
 import com.am9.ticket_ingestion_service.dto.TicketResponse;
 import com.am9.ticket_ingestion_service.exception.DuplicateInFlightException;
 import com.am9.ticket_ingestion_service.exception.IdempotencyKeyConflictException;
+import com.am9.ticket_ingestion_service.exception.InvalidIdempotencyKeyException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -140,10 +141,10 @@ public class IdempotencyService {
 
     private void validateKey(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()){
-            throw new IllegalArgumentException("Idempotency-Key must not be blank");
+            throw new InvalidIdempotencyKeyException("Idempotency-Key must not be blank");
         }
         if (idempotencyKey.length() > MAX_KEY_LENGTH) {
-            throw new IllegalArgumentException("Idempotency-Key must be 128 characters or fewer");
+            throw new InvalidIdempotencyKeyException("Idempotency-Key must be 128 characters or fewer");
         }
     }
 

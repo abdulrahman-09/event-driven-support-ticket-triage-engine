@@ -26,7 +26,8 @@ public class TicketController {
         if (idempotencyKey == null || idempotencyKey.isBlank()){
             throw new MissingIdempotencyKeyException();
         }
-        TicketResponse response = ticketService.createTicket(idempotencyKey, request);
+        String normalizedIdempotencyKey = idempotencyKey.strip();
+        TicketResponse response = ticketService.createTicket(normalizedIdempotencyKey, request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 }
