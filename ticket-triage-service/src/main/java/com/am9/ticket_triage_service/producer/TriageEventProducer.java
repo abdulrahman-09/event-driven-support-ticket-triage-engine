@@ -37,4 +37,17 @@ public class TriageEventProducer {
         };
         return kafkaTemplate.send(topic, event.ticketId(), event);
     }
+
+    public void publishRoutedAndAwait(TicketEvent event) {
+        try {
+            publishRouted(event).get();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while publishing ticket " + event.ticketId(), ex);
+        } catch (java.util.concurrent.ExecutionException ex) {
+            throw new IllegalStateException(
+                    "Could not publish ticket " + event.ticketId(), ex.getCause());
+        }
+    }
 }

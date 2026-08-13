@@ -31,6 +31,8 @@ public class Ticket {
     private String category;
     private List<StatusChange> statusHistory = new ArrayList<>();
 
+    private boolean routePublished;
+
     @Indexed
     private Instant createdAt;
 
@@ -44,6 +46,7 @@ public class Ticket {
         ticket.description = description;
         ticket.customerEmail = customerEmail;
         ticket.status = TicketStatus.STARTED;
+        ticket.routePublished = false;
         ticket.createdAt = createdAt;
         ticket.updatedAt = createdAt;
         ticket.statusHistory.add(new StatusChange(TicketStatus.STARTED, createdAt, "Ticket received"));

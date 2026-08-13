@@ -5,12 +5,15 @@ import com.am9.ticket_triage_service.ai.TriageResultValidator;
 import com.am9.ticket_triage_service.dto.TicketEvent;
 import com.am9.ticket_triage_service.dto.TriageResult;
 import com.am9.ticket_triage_service.dto.ValidatedTriageResult;
+import com.am9.ticket_triage_service.exception.InvalidTicketEventException;
+import com.am9.ticket_triage_service.exception.InvalidTriageResultException;
 import com.am9.ticket_triage_service.model.Ticket;
 import com.am9.ticket_triage_service.model.TicketStatus;
 import com.am9.ticket_triage_service.producer.TriageEventProducer;
 import com.am9.ticket_triage_service.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -27,62 +30,83 @@ public class TicketConsumer {
     private final TriageResultValidator triageResultValidator;
 
     @KafkaListener(topics = "${app.kafka.topic.tickets-created}", concurrency = "3")
-    public void handleTicketCreated(TicketEvent event){
-        log.info("Received ticket {} for triage", event.ticketId());
+    public void handleTicketCreated(TicketEvent event) {
+        validateEvent(event);
+        Ticket ticket = loadOrCreate(event);
 
-        Ticket ticket = Ticket.newFromEvent(
-                event.ticketId(), event.subject(), event.description(),
-                event.userEmail(), event.createdAt()
-        );
-
-        try{
-
-            ticketRepository.save(ticket);
-            TriageResult rawResult = triageClassifier.classify(event);
-            ValidatedTriageResult validatedResult = triageResultValidator.validate(rawResult);
-            applyClassification(ticket, validatedResult, event);
-        }catch (Exception ex){
-            log.error("Failed to process ticket {}: {}", event.ticketId(), ex.getMessage());
-            handleFailure(ticket, event, ex.getMessage());
+        if (ticket.isRoutePublished()) {
+            log.info("Ticket {} was already routed; ignoring replay", event.ticketId());
+            return;
         }
-    }
 
-    private void applyClassification(Ticket ticket, ValidatedTriageResult result, TicketEvent event) {
-        Instant now = Instant.now();
-        String note = "Classified as " + result.urgency() + ": " + result.reasoning();
+        if (ticket.getStatus() == TicketStatus.STARTED) {
+            classifyAndPersist(ticket, event);
+        }
 
-        ticket.setCategory(result.category());
-        ticket.setUrgencyReasoning(result.reasoning());
-        ticket.appendStatusChange(result.urgency(), note, now);
+        if (!isRoutable(ticket.getStatus())) {
+            throw new InvalidTriageResultException(
+                    "Ticket " + event.ticketId() + " is not in a routable status");
+        }
+
+        triageEventProducer.publishRoutedAndAwait(toRoutedEvent(ticket, event));
+        ticket.setRoutePublished(true);
         ticketRepository.save(ticket);
-
-        TicketEvent classifiedEvent = new TicketEvent(
-                event.ticketId(), event.subject(), event.description(), event.userEmail(),
-                result.urgency().toString(), result.category(), result.reasoning(), event.createdAt(), now
-        );
-
-        triageEventProducer.publishRouted(classifiedEvent);
-        log.info("Ticket {} classified as {}", event.ticketId(), result.urgency());
+        log.info("Ticket {} routed as {}", event.ticketId(), ticket.getStatus());
     }
 
-    private void handleFailure(Ticket ticket, TicketEvent event, String failureReason) {
-        Instant now = Instant.now();
-        String note = "Processing failed: " + failureReason;
+    private Ticket loadOrCreate(TicketEvent event) {
+        return ticketRepository.findById(event.ticketId()).orElseGet(() -> {
+            try {
+                return ticketRepository.insert(Ticket.newFromEvent(
+                        event.ticketId(), event.subject(), event.description(),
+                        event.userEmail(), event.createdAt()));
+            } catch (DuplicateKeyException duplicate) {
+                return ticketRepository.findById(event.ticketId())
+                        .orElseThrow(() -> duplicate);
+            }
+        });
+    }
 
+    private void classifyAndPersist(Ticket ticket, TicketEvent event) {
         try {
-            ticket.appendStatusChange(TicketStatus.FAILED, note, now);
-            ticketRepository.save(ticket);
-        } catch (Exception mongoEx) {
-            log.error("Could not persist FAILED status for ticket {} — Mongo write failed: {}",
-                    event.ticketId(), mongoEx.getMessage());
-        }
+            TriageResult rawResult = triageClassifier.classify(event);
+            ValidatedTriageResult result = triageResultValidator.validate(rawResult);
+            Instant now = Instant.now();
 
-        TicketEvent dlqEvent = new TicketEvent(
-                event.ticketId(), event.subject(), event.description(), event.userEmail(),
-                null, null, note, event.createdAt(), now
-        );
-        triageEventProducer.publishRouted(dlqEvent);
+            ticket.setCategory(result.category());
+            ticket.setUrgencyReasoning(result.reasoning());
+            ticket.appendStatusChange(result.urgency(),
+                    "Classified as " + result.urgency() + ": " + result.reasoning(), now);
+            ticketRepository.save(ticket);
+        } catch (InvalidTriageResultException invalidResult) {
+            ticket.appendStatusChange(TicketStatus.FAILED,
+                    "Triage produced an invalid response", Instant.now());
+            ticketRepository.save(ticket);
+            throw invalidResult;
+        }
     }
 
+    private TicketEvent toRoutedEvent(Ticket ticket, TicketEvent source) {
+        return new TicketEvent(ticket.getId(), ticket.getSubject(), ticket.getDescription(),
+                ticket.getCustomerEmail(), ticket.getStatus().name(), ticket.getCategory(),
+                ticket.getUrgencyReasoning(), ticket.getCreatedAt(), Instant.now());
+    }
 
+    private boolean isRoutable(TicketStatus status) {
+        return status == TicketStatus.CRITICAL
+                || status == TicketStatus.MEDIUM
+                || status == TicketStatus.LOW;
+    }
+
+    private void validateEvent(TicketEvent event) {
+        if (event == null || isBlank(event.ticketId()) || isBlank(event.subject())
+                || isBlank(event.description()) || isBlank(event.userEmail())
+                || event.createdAt() == null) {
+            throw new InvalidTicketEventException("Invalid tickets.created event");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
 }
