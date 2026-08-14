@@ -83,9 +83,8 @@ class IdempotencyServiceTest {
 
     @Test
     void fingerprint_wrapsJsonSerializationFailure() throws Exception {
-        ObjectMapper failingMapper = org.mockito.Mockito.mock(ObjectMapper.class);
         JsonProcessingException jsonFailure = new JsonProcessingException("cannot serialize request") { };
-        when(failingMapper.writeValueAsString(any())).thenThrow(jsonFailure);
+        ObjectMapper failingMapper = mapperThatFailsToWrite(jsonFailure);
         IdempotencyService failingService = newService(failingMapper);
 
         Throwable thrown = catchThrowable(() -> failingService.fingerprint(request));
@@ -254,9 +253,8 @@ class IdempotencyServiceTest {
 
     @Test
     void start_wrapsProcessingRecordSerializationFailure() throws Exception {
-        ObjectMapper failingMapper = org.mockito.Mockito.mock(ObjectMapper.class);
         JsonProcessingException jsonFailure = new JsonProcessingException("cannot serialize record") { };
-        when(failingMapper.writeValueAsString(any())).thenThrow(jsonFailure);
+        ObjectMapper failingMapper = mapperThatFailsToWrite(jsonFailure);
         IdempotencyService failingService = newService(failingMapper);
 
         Throwable thrown = catchThrowable(() -> failingService.startOrReturnCompleted(KEY, REQUEST_HASH));
@@ -370,9 +368,8 @@ class IdempotencyServiceTest {
 
     @Test
     void complete_wrapsSerializationFailure() throws Exception {
-        ObjectMapper failingMapper = org.mockito.Mockito.mock(ObjectMapper.class);
         JsonProcessingException jsonFailure = new JsonProcessingException("cannot serialize completion") { };
-        when(failingMapper.writeValueAsString(any())).thenThrow(jsonFailure);
+        ObjectMapper failingMapper = mapperThatFailsToWrite(jsonFailure);
         IdempotencyService failingService = newService(failingMapper);
         when(valueOperations.get(redisKey(KEY))).thenReturn(null);
 
@@ -463,9 +460,8 @@ class IdempotencyServiceTest {
 
     @Test
     void fail_propagatesSerializationFailureWithoutWrappingIt() throws Exception {
-        ObjectMapper failingMapper = org.mockito.Mockito.mock(ObjectMapper.class);
         JsonProcessingException jsonFailure = new JsonProcessingException("cannot serialize failure") { };
-        when(failingMapper.writeValueAsString(any())).thenThrow(jsonFailure);
+        ObjectMapper failingMapper = mapperThatFailsToWrite(jsonFailure);
         IdempotencyService failingService = newService(failingMapper);
         when(valueOperations.get(redisKey(KEY))).thenReturn(null);
 
@@ -485,6 +481,15 @@ class IdempotencyServiceTest {
 
         assertThatThrownBy(() -> service.fail(KEY, REQUEST_HASH, "failure"))
                 .isSameAs(redisFailure);
+    }
+
+    private static ObjectMapper mapperThatFailsToWrite(JsonProcessingException failure) {
+        return new ObjectMapper() {
+            @Override
+            public String writeValueAsString(Object value) throws JsonProcessingException {
+                throw failure;
+            }
+        };
     }
 
     private IdempotencyService newService(ObjectMapper mapper) {
