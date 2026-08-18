@@ -114,6 +114,34 @@ Basic observability is configured via Spring Boot Actuator on the ingestion and 
 - Ingestion: `http://localhost:8080/actuator/health`, `http://localhost:8080/actuator/info`
 - Portal: `http://localhost:8082/actuator/health`, `http://localhost:8082/actuator/info`
 
+## Project structure
+
+```text
+.
+├── docker-compose.yml
+├── .env.example
+├── docs/
+│   └── images/
+├── ticket-ingestion-service/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/
+│       ├── main/       # REST intake, Redis idempotency, Kafka producer
+│       └── test/
+├── ticket-triage-service/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/
+│       ├── main/       # Kafka consumer, Gemini classification, MongoDB writer
+│       └── test/
+└── ticket-portal-service/
+    ├── Dockerfile
+    ├── pom.xml
+    └── src/
+        ├── main/       # REST read API and MongoDB query service
+        └── test/
+```
+
 ## License
 
 Distributed under the [MIT License](LICENSE).
