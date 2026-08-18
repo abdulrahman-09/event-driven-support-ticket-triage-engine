@@ -145,3 +145,8 @@ Basic observability is configured via Spring Boot Actuator on the ingestion and 
 ## License
 
 Distributed under the [MIT License](LICENSE).
+
+## Contact
+
+- Email: [abdulrahman.mujahid09@gmail.com](mailto:abdulrahman.mujahid09@gmail.com)
+- LinkedIn: [linkedin.com/in/abdulrahman-mujahid](https://www.linkedin.com/in/abdulrahman-mujahid/)
